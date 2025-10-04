@@ -1,0 +1,1142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>NMC Smart Expense Portal </title>
+
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;800&display=swap" rel="stylesheet">
+
+<!-- Three.js for 3D landing -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<!-- Tesseract for OCR -->
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.1.1/dist/tesseract.min.js"></script>
+
+<style>
+  :root{
+    --accent-1: #029e84;
+    --accent-2: #0e8762;
+    --bg: #f0f8f6;
+    --card: #ffffff;
+    --muted: #9b9fa5;
+    --rounded: 10px;
+  }
+  html,body{height:100%;margin:0;font-family:'Poppins',system-ui,Arial;color:#222;background:var(--bg);box-sizing:border-box}
+  /* Header / Nav (NMC style) */
+  header.topbar {
+    background: linear-gradient(90deg,var(--accent-1),var(--accent-2));
+    color: white; padding: 0.6rem 1rem; display:flex;align-items:center;justify-content:space-between;gap:12px;
+  }
+  header .brand { font-weight:700; font-size:1.1rem; display:flex;align-items:center; gap:12px }
+  header .brand .logo { width:40px; height:40px; border-radius:8px; background:rgba(255,255,255,0.12); display:flex;align-items:center;justify-content:center; font-weight:800; }
+  nav#nav-bar { display:flex; gap:8px; align-items:center; }
+  nav#nav-bar button { background: white; border: none; padding: 0.45rem 0.8rem; border-radius:6px; cursor:pointer; font-weight:600; color: var(--accent-1); transition:background .2s; }
+  nav#nav-bar button.hidden { display:none; }
+  nav#nav-bar button:hover { background:#82b7aa; }
+
+  /* Landing canvas */
+  #landing { position:relative; height:56vh; overflow:hidden; display:flex; align-items:center; justify-content:center; background:linear-gradient(135deg,#081826,#123243); color:#fff; flex-direction:column; text-align:center; }
+  #landing canvas#bgCanvas { position:absolute; inset:0; width:100%; height:100%; z-index:0; }
+  #landing .landing-content { position:relative; z-index:2; max-width:980px; padding:24px; }
+  #landing h1 { margin:0; font-size:2.2rem; letter-spacing:-0.5px; background:linear-gradient(90deg,#7ef6ff,#b7ffd8); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+  #landing p { margin:12px 0 18px 0; color: rgba(255,255,255,0.9); max-width:860px; font-size:1rem; }
+
+  /* Get started button */
+  .cta { padding:12px 22px; border-radius:999px; background:linear-gradient(90deg,#7ef6ff,#b7ffd8); color:#042; border: none; font-weight:700; cursor:pointer; }
+
+  /* Page container */
+  main.container { max-width:1100px; margin: -40px auto 40px auto; padding:18px; display:block; }
+
+  /* App layout */
+  .app { display:grid; grid-template-columns:280px 1fr; gap:18px; align-items:start; }
+  .sidebar { background:var(--card); border-radius:var(--rounded); padding:16px; box-shadow:0 10px 30px rgba(10,20,40,0.06); }
+  .maincard { background:var(--card); border-radius:var(--rounded); padding:16px; box-shadow:0 10px 30px rgba(10,20,40,0.06); min-height:360px; }
+
+  h2 { margin:6px 0 12px 0; font-size:1.05rem; }
+  .muted { color:var(--muted); font-size:0.95rem; }
+  .mini { font-size:0.85rem; color:var(--muted); }
+
+  input, select, textarea { width:100%; padding:10px; margin:8px 0; border-radius:8px; border:1px solid #e6eef8; font-size:0.95rem; }
+  textarea { min-height:80px; resize:vertical; }
+  .btn { display:inline-block; padding:8px 12px; border-radius:8px; border:0; background:linear-gradient(90deg,var(--accent-1),var(--accent-2)); color:white; cursor:pointer; font-weight:700; }
+  .btn.ghost { background:transparent; color:var(--accent-1); border:1px solid #e6f5ff; }
+  .btn.danger { background:linear-gradient(90deg,#d9534f,#c9302c); }
+  .hidden { display:none; }
+
+  .panel { padding:12px; border-radius:8px; background:linear-gradient(180deg,#fff,#fbfdff); border:1px solid #eef6ff; margin-bottom:12px; }
+  table { width:100%; border-collapse:collapse; font-size:0.95rem; }
+  th,td { padding:8px; border-bottom:1px solid #f1f5f9; text-align:left; }
+  .pill { display:inline-block; padding:4px 8px; border-radius:999px; background:#f3f4f6; font-size:0.8rem; }
+
+  .ocr-preview { max-width:220px; max-height:160px; object-fit:contain; border-radius:8px; border:1px solid #eef6ff; display:block; margin-top:8px; }
+
+  .expense-card { border-radius:8px; padding:12px; margin-bottom:12px; background:#fafafa; border:1px solid #eee; }
+  .expense-card.pending { border-left:5px solid #f0ad4e; }
+  .expense-card.approved { border-left:5px solid #5cb85c; }
+  .expense-card.rejected { border-left:5px solid #d9534f; }
+
+  .user-card { border-radius:8px; padding:12px; margin-bottom:12px; background:#fafafa; border:1px solid #eee; }
+  .user-card.admin { border-left:5px solid #029e84; }
+  .user-card.manager { border-left:5px solid #5bc0de; }
+  .user-card.employee { border-left:5px solid #f0ad4e; }
+
+  .tabs { display:flex; gap:8px; margin-bottom:12px; border-bottom:1px solid #eee; }
+  .tab { padding:8px 12px; background:transparent; border:none; border-bottom:2px solid transparent; cursor:pointer; font-weight:600; color:var(--muted); }
+  .tab.active { border-bottom-color:var(--accent-1); color:var(--accent-1); }
+
+  footer { text-align:center; margin-top:18px; color:var(--muted); font-size:0.9rem; }
+
+  /* small screens */
+  @media (max-width:900px){
+    .app{ grid-template-columns: 1fr; }
+    main.container { margin-top: -20px; padding:12px; }
+    header.topbar { flex-direction:column; gap:8px; padding:0.8rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Header (NMC) -->
+<header class="topbar">
+  <div class="brand">
+    <div class="logo">N</div>
+    <div>
+      <div style="font-size:1rem;font-weight:700">NMC Company</div>
+      <div class="mini">Smart Expense Portal</div>
+    </div>
+  </div>
+
+  <nav id="nav-bar">
+    <button id="btn-home">Home</button>
+    <button id="btn-login">Login</button>
+    <button id="btn-register">Register</button>
+    <button id="btn-logout" class="hidden">Logout</button>
+  </nav>
+</header>
+
+<!-- Landing -->
+<section id="landing">
+  <canvas id="bgCanvas"></canvas>
+  <div class="landing-content">
+    <h1>Smart Expense Management</h1>
+    <p>Scan receipts, auto-fill claims using OCR, route approvals, and export reports.</p>
+    <div style="display:flex;gap:12px;justify-content:center">
+      <button class="cta" onclick="enterApp()">Get Started</button>
+      <button class="btn ghost" onclick="showSection('register')">Create Account</button>
+    </div>
+  </div>
+</section>
+
+<!-- Application Container -->
+<main class="container hidden" id="appContainer">
+  <div class="app">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="panel">
+        <div id="notLoggedInInfo">
+          <div class="muted">Not signed in</div>
+          <div style="margin-top:8px"><button class="btn" onclick="showSection('login')">Sign In</button></div>
+        </div>
+        <div id="loggedInInfo" class="hidden">
+          <div style="font-weight:700" id="who"></div>
+          <div class="mini" id="roleBadge"></div>
+          <div style="margin-top:8px"><button class="btn ghost" onclick="logout()">Logout</button></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div style="margin-bottom:8px" class="mini">Navigation</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <button id="navDashboard" class="ghost" onclick="showSection('dashboard')">Dashboard</button>
+          <button id="navSubmit" class="ghost" onclick="showSection('submit')">Submit Expense</button>
+          <button id="navHistory" class="ghost" onclick="showSection('history')">My Expenses</button>
+          <button id="navPending" class="ghost" onclick="showSection('pending')">Pending Approvals</button>
+          <button id="navAdmin" class="ghost" onclick="showSection('admin')">Admin / Reports</button>
+          <button id="navUserManagement" class="ghost hidden" onclick="showSection('userManagement')">User Management</button>
+        </div>
+      </div>
+
+    </aside>
+
+    <!-- Main -->
+    <section class="maincard" id="mainArea">
+      <!-- Home -->
+      <div id="home-section" class="view">
+        <h2>Welcome</h2>
+        <p class="muted">Click "Get Started" or use the header nav to register / login.</p>
+        <div style="margin-top:12px" class="panel">
+          <h3 style="margin:0 0 8px 0">Quick actions</h3>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn" onclick="showSection('register')">Create account</button>
+            <button class="btn ghost" onclick="showSection('login')">Sign in</button>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Register -->
+      <div id="register-section" class="view hidden">
+        <h2>Create account</h2>
+        <form id="register-form">
+          <label>Full name</label>
+          <input id="register-name" type="text" placeholder="Your name" required />
+          <label>Username (email)</label>
+          <input id="register-username" type="text" placeholder="user@company" required />
+          <label>Password</label>
+          <input id="register-password" type="password" required />
+          <label>Role</label>
+          <select id="register-role" required>
+            <option value="">Select role</option>
+            <option value="Employee">Employee</option>
+            <option value="Manager">Manager</option>
+            <option value="Finance">Finance</option>
+            <option value="Director">Director</option>
+            <option value="Admin">Admin</option>
+          </select>
+          <div style="margin-top:10px;display:flex;gap:8px">
+            <button class="btn" type="submit">Register</button>
+            <button class="btn ghost" type="button" onclick="showSection('login')">Have account? Login</button>
+          </div>
+          <p id="register-error" class="muted" style="color:red;margin-top:8px"></p>
+        </form>
+      </div>
+
+      <!-- Login -->
+      <div id="login-section" class="view hidden">
+        <h2>Login</h2>
+        <form id="login-form">
+          <label>Username (email)</label>
+          <input id="login-username" type="text" required />
+          <label>Password</label>
+          <input id="login-password" type="password" required />
+          <div style="margin-top:10px;display:flex;gap:8px">
+            <button class="btn" type="submit">Login</button>
+            <button class="btn ghost" type="button" onclick="showSection('register')">Register</button>
+          </div>
+          <p id="login-error" class="muted" style="color:red;margin-top:8px"></p>
+        </form>
+      </div>
+
+      <!-- Dashboard -->
+      <div id="dashboard-section" class="view hidden">
+        <h2>Dashboard</h2>
+        <div class="panel">
+          <div style="display:flex;justify-content:space-between;gap:12px;align-items:center">
+            <div>
+              <div class="muted">Logged as</div>
+              <div style="font-weight:700" id="dashUser">—</div>
+            </div>
+            <div>
+              <div class="muted">Pending for you</div>
+              <div style="font-weight:700" id="dashPending">0</div>
+            </div>
+            <div>
+              <div class="muted">Total expenses</div>
+              <div style="font-weight:700" id="dashTotal">0</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h3 style="margin-top:0">Recent activity</h3>
+          <table id="recentTable">
+            <thead><tr><th>Date</th><th>User</th><th>Amount</th><th>Stage</th><th>Status</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Submit Expense -->
+      <div id="submit-section" class="view hidden">
+        <h2>Submit Expense</h2>
+        <div class="panel">
+          <form id="expense-form">
+            <label>Receipt image</label>
+            <input id="receipt-image" type="file" accept="image/*" />
+            <img id="receipt-preview" class="ocr-preview hidden" alt="receipt preview" />
+            <div style="margin-top:8px">
+              <button type="button" class="btn" id="scan-receipt">Scan Receipt (OCR)</button>
+              <span class="mini" style="margin-left:8px;color:var(--muted)">OCR runs in your browser</span>
+            </div>
+
+            <label>Amount</label>
+            <input id="expense-amount" type="number" step="0.01" />
+
+            <label>Date</label>
+            <input id="expense-date" type="date" />
+
+            <label>Category</label>
+            <select id="expense-type">
+              <option value="Travel">Travel</option>
+              <option value="Meals">Meals</option>
+              <option value="Accommodation">Accommodation</option>
+              <option value="Office Supplies">Office Supplies</option>
+              <option value="Other">Other</option>
+            </select>
+
+            <label>Description</label>
+            <textarea id="expense-description"></textarea>
+
+            <label>Optional: Vendor / Restaurant</label>
+            <input id="expense-restaurant" type="text" />
+
+            <div style="margin-top:10px;display:flex;gap:8px">
+              <button class="btn" type="submit">Submit Claim</button>
+              <button class="btn ghost" type="button" onclick="expenseForm.reset()">Clear</button>
+            </div>
+            <p id="expense-message" class="muted" style="color:green;margin-top:8px"></p>
+          </form>
+        </div>
+      </div>
+
+      <!-- My History -->
+      <div id="history-section" class="view hidden">
+        <h2>My Expenses</h2>
+        <div id="historyList"></div>
+      </div>
+
+      <!-- Pending Approvals -->
+      <div id="pending-section" class="view hidden">
+        <h2>Pending Approvals</h2>
+        <div id="pendingPanel"></div>
+      </div>
+
+      <!-- Admin / Reports -->
+      <div id="admin-section" class="view hidden">
+        <h2>Admin • All Expenses & Exports</h2>
+        <div style="display:flex;gap:8px;margin-bottom:12px">
+          <button class="btn" onclick="downloadCSV()">Download CSV</button>
+          <button class="btn ghost" onclick="exportJSON()">Export JSON</button>
+        </div>
+        <div id="allExpenses"></div>
+      </div>
+
+      <!-- User Management -->
+      <div id="userManagement-section" class="view hidden">
+        <h2>User Management</h2>
+        <div class="tabs">
+          <button class="tab active" onclick="showUserTab('create')">Create User</button>
+          <button class="tab" onclick="showUserTab('manage')">Manage Users</button>
+        </div>
+        
+        <!-- Create User Tab -->
+        <div id="createUserTab" class="panel">
+          <h3>Create New User</h3>
+          <form id="admin-user-form">
+            <label>Full name</label>
+            <input id="admin-user-name" type="text" placeholder="User's full name" required />
+            
+            <label>Username (email)</label>
+            <input id="admin-user-username" type="text" placeholder="user@company" required />
+            
+            <label>Password</label>
+            <input id="admin-user-password" type="password" required />
+            
+            <label>Role</label>
+            <select id="admin-user-role" required>
+              <option value="">Select role</option>
+              <option value="Employee">Employee</option>
+              <option value="Manager">Manager</option>
+              <option value="Finance">Finance</option>
+              <option value="Director">Director</option>
+              <option value="Admin">Admin</option>
+            </select>
+            
+            <label>Manager (for Employees)</label>
+            <select id="admin-user-manager">
+              <option value="">None</option>
+            </select>
+            
+            <div style="margin-top:10px;display:flex;gap:8px">
+              <button class="btn" type="submit">Create User</button>
+              <button class="btn ghost" type="button" onclick="document.getElementById('admin-user-form').reset()">Clear</button>
+            </div>
+            <p id="admin-user-message" class="muted" style="color:green;margin-top:8px"></p>
+          </form>
+        </div>
+        
+        <!-- Manage Users Tab -->
+        <div id="manageUsersTab" class="panel hidden">
+          <h3>Manage Existing Users</h3>
+          <div id="usersList"></div>
+        </div>
+      </div>
+
+      <footer style="margin-top:10px">Team Edugeek </footer>
+    </section>
+  </div>
+</main>
+
+<script>
+/* -------------------------
+  LocalStorage data model + helpers
+  ------------------------- */
+const LS = {
+  users: 'nmc_users_v1',
+  expenses: 'nmc_expenses_v1',
+  rules: 'nmc_rules_v1',
+  current: 'nmc_current_v1'
+};
+
+function lsGet(key, def = null){
+  const v = localStorage.getItem(key);
+  return v ? JSON.parse(v) : def;
+}
+function lsSet(key, value){
+  localStorage.setItem(key, JSON.stringify(value));
+}
+function uid(prefix='id'){ return prefix + '_' + Math.random().toString(36).slice(2,10); }
+
+/* -------------------------
+  Seed default users & sample expense(s)
+  ------------------------- */
+function ensureSeed(){
+  if(!localStorage.getItem(LS.users)){
+    const users = [
+      { id: uid('u'), name:'Admin', username:'admin@company', pass:'admin', role:'Admin' },
+      { id: uid('u'), name:'aaryan Manager', username:'aaryan@company', pass:'aaryan', role:'Manager' },
+      { id: uid('u'), name:'nischay Finance', username:'nischay@company', pass:'nischay', role:'Finance' },
+      { id: uid('u'), name:'shatakshi Director', username:'shatakshi@company', pass:'shatakshi', role:'Director' },
+      { id: uid('u'), name:'yatharth Employee', username:'yatharth@company', pass:'yatharth', role:'Employee', manager:'aaryan@company' }
+    ];
+    lsSet(LS.users, users);
+  }
+  if(!localStorage.getItem(LS.expenses)){
+    const expenses = [
+      {
+        id: uid('e'),
+        user: 'yatharth@company',
+        name: 'yatharth Employee',
+        amount: 1200,
+        date: new Date().toISOString().slice(0,10),
+        category: 'Travel',
+        description: 'Taxi to client',
+        receipt: '',
+        stage: 'Done',
+        status: 'Approved',
+        history: [{by:'yatharth@company',role:'Employee',action:'Submitted',comment:'',at:new Date().toISOString()},
+                  {by:'aaryan@company',role:'Manager',action:'Approved',comment:'ok',at:new Date().toISOString()},
+                  {by:'nischay@company',role:'Finance',action:'Approved',comment:'cleared',at:new Date().toISOString()}]
+      }
+    ];
+    lsSet(LS.expenses, expenses);
+  }
+  if(!localStorage.getItem(LS.rules)){
+    lsSet(LS.rules, { managerMax: 5000, financeMax: 20000, directorEmail: 'dora@company' });
+  }
+}
+ensureSeed();
+
+/* -------------------------
+  UI references
+  ------------------------- */
+const btnHome = document.getElementById('btn-home');
+const btnLogin = document.getElementById('btn-login');
+const btnRegister = document.getElementById('btn-register');
+const btnLogout = document.getElementById('btn-logout');
+const appContainer = document.getElementById('appContainer');
+const landing = document.getElementById('landing');
+
+const sections = {
+  home: document.getElementById('home-section'),
+  register: document.getElementById('register-section'),
+  login: document.getElementById('login-section'),
+  dashboard: document.getElementById('dashboard-section'),
+  submit: document.getElementById('submit-section'),
+  history: document.getElementById('history-section'),
+  pending: document.getElementById('pending-section'),
+  admin: document.getElementById('admin-section'),
+  userManagement: document.getElementById('userManagement-section'),
+};
+
+const registerForm = document.getElementById('register-form');
+const loginForm = document.getElementById('login-form');
+const loginError = document.getElementById('login-error');
+const registerError = document.getElementById('register-error');
+const adminUserForm = document.getElementById('admin-user-form');
+const adminUserMessage = document.getElementById('admin-user-message');
+
+const whoEl = document.getElementById('who');
+const roleBadge = document.getElementById('roleBadge');
+const dashUser = document.getElementById('dashUser');
+const dashPending = document.getElementById('dashPending');
+const dashTotal = document.getElementById('dashTotal');
+
+const expenseForm = document.getElementById('expense-form');
+const receiptImageInput = document.getElementById('receipt-image');
+const receiptPreview = document.getElementById('receipt-preview');
+const scanReceiptBtn = document.getElementById('scan-receipt');
+const expenseMessage = document.getElementById('expense-message');
+const historyList = document.getElementById('historyList');
+const pendingPanel = document.getElementById('pendingPanel');
+const allExpensesDiv = document.getElementById('allExpenses');
+const recentTableBody = document.querySelector('#recentTable tbody');
+const usersListDiv = document.getElementById('usersList');
+
+/* --------------
+  Navigation / App show logic
+   -------------- */
+btnHome.onclick = () => showSection('home');
+btnLogin.onclick = () => showSection('login');
+btnRegister.onclick = () => showSection('register');
+btnLogout.onclick = () => logout();
+
+let currentUser = (lsGet(LS.current, null) || null);
+
+function enterApp(){
+  landing.classList.add('hidden');
+  appContainer.classList.remove('hidden');
+  showSection(currentUser ? 'dashboard' : 'home');
+  refreshAll();
+}
+
+function showSection(name){
+  // hide all views
+  Object.values(sections).forEach(s => s.classList.add('hidden'));
+  // show requested
+  const target = sections[name];
+  if(target) target.classList.remove('hidden');
+  // if showing dashboard, refresh data
+  if(name === 'dashboard') loadDashboard();
+  // if showing user management, populate manager dropdown
+  if(name === 'userManagement') populateManagerDropdown();
+  refreshAll();
+}
+
+/* --------------
+  Auth: register / login / logout
+  -------------- */
+registerForm.onsubmit = (e) => {
+  e.preventDefault();
+  registerError.textContent = '';
+  const name = document.getElementById('register-name').value.trim();
+  const username = document.getElementById('register-username').value.trim();
+  const pass = document.getElementById('register-password').value;
+  const role = document.getElementById('register-role').value;
+  if(!name || !username || !pass || !role){ registerError.textContent = 'Please fill all fields'; return; }
+
+  let users = lsGet(LS.users, []);
+  if(users.find(u => u.username === username)){ registerError.textContent = 'Username exists'; return; }
+  const user = { id: uid('u'), name, username, pass, role };
+  users.push(user); lsSet(LS.users, users);
+  // auto-login after register
+  setCurrent(user.username);
+  showSection('dashboard');
+  alert('Account created and signed in!');
+};
+
+loginForm.onsubmit = (e) => {
+  e.preventDefault();
+  loginError.textContent = '';
+  const username = document.getElementById('login-username').value.trim();
+  const pass = document.getElementById('login-password').value;
+  const users = lsGet(LS.users, []);
+  const u = users.find(x => x.username === username && x.pass === pass);
+  if(!u){ loginError.textContent = 'Invalid credentials'; return; }
+  setCurrent(u.username);
+  showSection('dashboard');
+};
+
+/* set current user */
+function setCurrent(username){
+  if(!username){ localStorage.removeItem(LS.current); currentUser = null; } 
+  else { lsSet(LS.current, { username }); currentUser = getUserByUsername(username); }
+  refreshAll();
+}
+function getCurrent(){ return currentUser; }
+function getUserByUsername(username){
+  const users = lsGet(LS.users, []);
+  return users.find(u => u.username === username) || null;
+}
+function logout(){
+  localStorage.removeItem(LS.current);
+  currentUser = null;
+  refreshAll();
+  showSection('home');
+}
+
+/* --------------
+  User Management Functions
+  -------------- */
+// Handle admin user creation form
+adminUserForm.onsubmit = (e) => {
+  e.preventDefault();
+  adminUserMessage.textContent = '';
+  
+  const name = document.getElementById('admin-user-name').value.trim();
+  const username = document.getElementById('admin-user-username').value.trim();
+  const pass = document.getElementById('admin-user-password').value;
+  const role = document.getElementById('admin-user-role').value;
+  const manager = document.getElementById('admin-user-manager').value;
+  
+  if(!name || !username || !pass || !role){ 
+    adminUserMessage.textContent = 'Please fill all required fields'; 
+    adminUserMessage.style.color = 'red';
+    return; 
+  }
+
+  let users = lsGet(LS.users, []);
+  if(users.find(u => u.username === username)){ 
+    adminUserMessage.textContent = 'Username already exists'; 
+    adminUserMessage.style.color = 'red';
+    return; 
+  }
+  
+  const user = { 
+    id: uid('u'), 
+    name, 
+    username, 
+    pass, 
+    role,
+    manager: (role === 'Employee' && manager) ? manager : undefined
+  };
+  
+  users.push(user); 
+  lsSet(LS.users, users);
+  
+  adminUserMessage.textContent = 'User created successfully!';
+  adminUserMessage.style.color = 'green';
+  adminUserForm.reset();
+  
+  // Refresh the users list if on manage tab
+  if(!document.getElementById('manageUsersTab').classList.contains('hidden')) {
+    loadUsersList();
+  }
+};
+
+// Populate manager dropdown with available managers
+function populateManagerDropdown() {
+  const users = lsGet(LS.users, []);
+  const managers = users.filter(u => u.role === 'Manager');
+  const managerSelect = document.getElementById('admin-user-manager');
+  
+  // Clear existing options except the first one
+  while (managerSelect.options.length > 1) {
+    managerSelect.remove(1);
+  }
+  
+  // Add manager options
+  managers.forEach(manager => {
+    const option = document.createElement('option');
+    option.value = manager.username;
+    option.textContent = `${manager.name} (${manager.username})`;
+    managerSelect.appendChild(option);
+  });
+}
+
+// Show specific tab in user management
+function showUserTab(tabName) {
+  const tabs = document.querySelectorAll('.tab');
+  tabs.forEach(tab => tab.classList.remove('active'));
+  
+  if(tabName === 'create') {
+    tabs[0].classList.add('active');
+    document.getElementById('createUserTab').classList.remove('hidden');
+    document.getElementById('manageUsersTab').classList.add('hidden');
+  } else if(tabName === 'manage') {
+    tabs[1].classList.add('active');
+    document.getElementById('createUserTab').classList.add('hidden');
+    document.getElementById('manageUsersTab').classList.remove('hidden');
+    loadUsersList();
+  }
+}
+
+// Load and display users list
+function loadUsersList() {
+  const users = lsGet(LS.users, []);
+  const currentUser = getCurrent();
+  
+  if(users.length === 0) {
+    usersListDiv.innerHTML = '<p class="muted">No users found.</p>';
+    return;
+  }
+  
+  usersListDiv.innerHTML = users.map(user => {
+    const roleClass = user.role.toLowerCase();
+    const managerInfo = user.manager ? `<div class="mini">Manager: ${user.manager}</div>` : '';
+    
+    // Don't allow changing role of current user
+    const canEdit = currentUser && currentUser.username !== user.username;
+    
+    return `
+      <div class="user-card ${roleClass}">
+        <div style="display:flex;justify-content:space-between">
+          <div>
+            <div style="font-weight:700">${user.name}</div>
+            <div class="mini">${user.username}</div>
+            <div class="pill">${user.role}</div>
+            ${managerInfo}
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            ${canEdit ? `
+              <select id="role-${user.id}" class="mini" style="width:auto">
+                <option value="Employee" ${user.role === 'Employee' ? 'selected' : ''}>Employee</option>
+                <option value="Manager" ${user.role === 'Manager' ? 'selected' : ''}>Manager</option>
+                <option value="Finance" ${user.role === 'Finance' ? 'selected' : ''}>Finance</option>
+                <option value="Director" ${user.role === 'Director' ? 'selected' : ''}>Director</option>
+                <option value="Admin" ${user.role === 'Admin' ? 'selected' : ''}>Admin</option>
+              </select>
+              <button class="btn mini" onclick="updateUserRole('${user.id}')">Update Role</button>
+            ` : '<div class="mini">Current user</div>'}
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// Update user role
+function updateUserRole(userId) {
+  const users = lsGet(LS.users, []);
+  const userIndex = users.findIndex(u => u.id === userId);
+  
+  if(userIndex === -1) return;
+  
+  const newRole = document.getElementById(`role-${userId}`).value;
+  users[userIndex].role = newRole;
+  
+  // If changing from Employee to non-Employee, remove manager field
+  if(newRole !== 'Employee') {
+    delete users[userIndex].manager;
+  }
+  
+  lsSet(LS.users, users);
+  loadUsersList(); // Refresh the list
+}
+
+/* --------------
+  Expense model and submission
+  -------------- */
+function submitExpenseLocal(expense){
+  const list = lsGet(LS.expenses, []);
+  list.unshift(expense);
+  lsSet(LS.expenses, list);
+}
+
+/* handle receipt preview */
+receiptImageInput.onchange = (ev) => {
+  const f = ev.target.files[0];
+  if(!f) { receiptPreview.classList.add('hidden'); return; }
+  const url = URL.createObjectURL(f);
+  receiptPreview.src = url; receiptPreview.classList.remove('hidden');
+  // keep file in a temp property on form for later saving
+  receiptImageInput._file = f;
+};
+
+scanReceiptBtn.onclick = async () => {
+  const f = receiptImageInput._file;
+  if(!f){ alert('Choose image file first'); return; }
+  if(typeof Tesseract === 'undefined'){ alert('OCR library not loaded'); return; }
+  scanReceiptBtn.disabled = true;
+  scanReceiptBtn.innerText = 'Scanning...';
+  try {
+    const result = await Tesseract.recognize(f, 'eng', { logger: m => {/* progress optionally */} });
+    const text = result.data.text || '';
+    // simple heuristics
+    const amt = extractAmountFromText(text);
+    const date = extractDateFromText(text);
+    if(amt) document.getElementById('expense-amount').value = amt;
+    if(date) document.getElementById('expense-date').value = date;
+    alert('OCR complete — fields auto-filled if detected.');
+  } catch(err){
+    console.error(err);
+    alert('OCR failed: ' + (err.message || err));
+  } finally {
+    scanReceiptBtn.disabled = false;
+    scanReceiptBtn.innerText = 'Scan Receipt (OCR)';
+  }
+};
+
+function extractAmountFromText(text){
+  if(!text) return null;
+  const lines = text.split('\n').map(l=>l.trim()).filter(Boolean);
+  let candidates = [];
+  for(const line of lines){
+    if(/total|amount|grand/i.test(line)){
+      const matches = line.match(/(?:₹|Rs\.?|INR)?\s*([0-9]{1,3}(?:[.,0-9]*)(?:\.[0-9]{1,2})?)/g);
+      if(matches){
+        for(const m of matches){
+          const num = parseFloat(m.replace(/[^\d.]/g,''));
+          if(!isNaN(num)) candidates.push(num);
+        }
+      }
+    }
+  }
+  if(candidates.length) return Math.max(...candidates);
+  // fallback: any decimal numbers
+  const all = text.match(/([0-9]+(?:\.[0-9]{1,2}))/g);
+  if(all && all.length) return parseFloat(all.sort((a,b)=>parseFloat(b)-parseFloat(a))[0]);
+  return null;
+}
+function extractDateFromText(text){
+  if(!text) return null;
+  const m = text.match(/(\d{4}-\d{2}-\d{2})|(\d{2}[\/\-]\d{2}[\/\-]\d{4})|(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/);
+  if(!m) return null;
+  const raw = m[0];
+  // normalize common dd/mm/yyyy to yyyy-mm-dd
+  const md = raw.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+  if(md){
+    let dd = md[1].padStart(2,'0'), mm = md[2].padStart(2,'0'), yy = md[3];
+    if(yy.length === 2) yy = '20' + yy;
+    return `${yy}-${mm}-${dd}`;
+  }
+  if(/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  return null;
+}
+
+/* expense form submit */
+expenseForm.onsubmit = (e) => {
+  e.preventDefault();
+  const cur = getCurrent();
+  if(!cur){ alert('Please login to submit an expense'); showSection('login'); return; }
+  const amount = Number(document.getElementById('expense-amount').value || 0);
+  if(!amount || amount <= 0){ alert('Enter amount'); return; }
+  const date = document.getElementById('expense-date').value || new Date().toISOString().slice(0,10);
+  const category = document.getElementById('expense-type').value;
+  const desc = document.getElementById('expense-description').value || '';
+  const vendor = document.getElementById('expense-restaurant').value || '';
+  const receiptFile = receiptImageInput._file;
+  let receiptName = '';
+  if(receiptFile){
+    // store simple data URI (small images ok). In production you'd upload.
+    const reader = new FileReader();
+    reader.onload = function(evt){
+      receiptName = evt.target.result;
+      pushExpense();
+    };
+    reader.readAsDataURL(receiptFile);
+  } else {
+    pushExpense();
+  }
+
+  function pushExpense(){
+    const expense = {
+      id: uid('exp'),
+      user: cur.username,
+      name: cur.name || cur.username,
+      amount,
+      date,
+      category,
+      description: desc,
+      vendor,
+      receipt: receiptName || '',
+      stage: 'Manager',
+      status: 'Pending',
+      history: [{by: cur.username, role: cur.role, action:'Submitted', comment:'', at: new Date().toISOString()}]
+    };
+    submitExpenseLocal(expense);
+    expenseMessage.innerText = 'Submitted ✓';
+    setTimeout(()=> expenseMessage.innerText = '', 1800);
+    expenseForm.reset();
+    receiptPreview.classList.add('hidden');
+    refreshAll();
+    showSection('history');
+  }
+};
+
+/* --------------
+  Approvals logic (simple routing like earlier file)
+  -------------- */
+function getPendingForUser(user){
+  if(!user) return [];
+  const all = lsGet(LS.expenses, []);
+  if(user.role === 'Manager'){
+    // manager sees expenses where stage === 'Manager' and where they are the manager of employee (if employee has manager field)
+    return all.filter(e => e.status === 'Pending' && e.stage === 'Manager');
+  }
+  if(user.role === 'Finance') return all.filter(e => e.status === 'Pending' && e.stage === 'Finance');
+  if(user.role === 'Director') return all.filter(e => e.status === 'Pending' && e.stage === 'Director');
+  if(user.role === 'Admin') return all.filter(e => e.status === 'Pending');
+  return [];
+}
+
+function approveExpense(id, comment = ''){
+  const cur = getCurrent();
+  if(!cur){ alert('Login'); return; }
+  let list = lsGet(LS.expenses, []);
+  const idx = list.findIndex(x => x.id === id);
+  if(idx === -1) return alert('Not found');
+  const e = list[idx];
+  e.history.push({ by: cur.username, role: cur.role, action: 'Approved', comment, at: new Date().toISOString() });
+
+  if(e.stage === 'Manager') e.stage = 'Finance';
+  else if(e.stage === 'Finance'){
+    // check amount to decide director
+    const rules = lsGet(LS.rules, { managerMax:5000, financeMax:20000, directorEmail:'' });
+    if(e.amount <= (rules.financeMax || 0)) { e.stage = 'Done'; e.status = 'Approved'; }
+    else { e.stage = 'Director'; }
+  } else if(e.stage === 'Director' || cur.role === 'Admin') {
+    e.stage = 'Done'; e.status = 'Approved';
+  } else {
+    e.stage = 'Done'; e.status = 'Approved';
+  }
+  if(e.stage === 'Done') e.status = 'Approved';
+  list[idx] = e; lsSet(LS.expenses, list);
+  refreshAll();
+}
+
+function rejectExpense(id, comment = ''){
+  const cur = getCurrent();
+  if(!cur){ alert('Login'); return; }
+  let list = lsGet(LS.expenses, []);
+  const idx = list.findIndex(x => x.id === id);
+  if(idx === -1) return alert('Not found');
+  const e = list[idx];
+  e.history.push({ by: cur.username, role: cur.role, action: 'Rejected', comment, at: new Date().toISOString() });
+  e.stage = 'Done'; e.status = 'Rejected';
+  list[idx] = e; lsSet(LS.expenses, list);
+  refreshAll();
+}
+
+/* --------------
+  Rendering / Refresh
+  -------------- */
+function refreshAll(){
+  // nav visibility
+  const cur = getCurrent();
+  document.getElementById('notLoggedInInfo').style.display = cur ? 'none' : 'block';
+  document.getElementById('loggedInInfo').style.display = cur ? 'block' : 'none';
+  btnLogin.classList.toggle('hidden', !!cur);
+  btnRegister.classList.toggle('hidden', !!cur);
+  btnLogout.classList.toggle('hidden', !cur);
+  
+  // Show/hide user management nav based on role
+  const userManagementNav = document.getElementById('navUserManagement');
+  if(cur && cur.role === 'Admin') {
+    userManagementNav.classList.remove('hidden');
+  } else {
+    userManagementNav.classList.add('hidden');
+  }
+
+  if(cur){
+    whoEl.innerText = cur.name ? (cur.name + ' • ' + cur.username) : cur.username;
+    roleBadge.innerText = cur.role;
+    dashUser.innerText = cur.name ? (cur.name + ' • ' + cur.role) : cur.username;
+  } else {
+    whoEl.innerText = '';
+    roleBadge.innerText = '';
+    dashUser.innerText = 'Not logged in';
+  }
+
+  // Dashboard counts
+  const expenses = lsGet(LS.expenses, []);
+  dashTotal.innerText = expenses.length;
+  dashPending.innerText = cur ? getPendingForUser(cur).length : 0;
+
+  // Recent activity
+  recentTableBody.innerHTML = '';
+  expenses.slice(0,10).forEach(r=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${r.date}</td><td>${r.user}</td><td>${r.amount}</td><td>${r.stage}</td><td>${r.status}</td>`;
+    recentTableBody.appendChild(tr);
+  });
+
+  // History (employee)
+  const historyCur = getCurrent();
+  historyList.innerHTML = '';
+  if(historyCur){
+    const list = lsGet(LS.expenses, []);
+    const filtered = (historyCur.role === 'Employee') ? list.filter(e=>e.user === historyCur.username) : list;
+    if(filtered.length === 0) historyList.innerHTML = '<p class="muted">No entries yet.</p>';
+    else {
+      historyList.innerHTML = filtered.map(e => {
+        const rec = e.receipt ? `<img src="${e.receipt}" class="ocr-preview" />` : '';
+        return `<div class="expense-card ${e.status.toLowerCase()}">
+          <div style="display:flex;justify-content:space-between">
+            <div><strong>${e.category}</strong> • ${e.date}</div>
+            <div class="pill">${e.status}</div>
+          </div>
+          <div style="margin-top:6px">₹${e.amount} • ${e.vendor || ''}</div>
+          <div style="margin-top:6px">${e.description || ''}</div>
+          <div style="margin-top:8px">${rec}</div>
+        </div>`;
+      }).join('');
+    }
+  } else {
+    historyList.innerHTML = '<p class="muted">Sign in to see your history</p>';
+  }
+
+  // Pending approvals
+  pendingPanel.innerHTML = '';
+  if(currentUser && ['Manager','Finance','Director','Admin'].includes(currentUser.role)){
+    const pend = getPendingForUser(currentUser);
+    if(pend.length === 0) pendingPanel.innerHTML = '<p class="muted">No pending approvals.</p>';
+    else {
+      pendingPanel.innerHTML = pend.map(e => {
+        const rec = e.receipt ? `<img src="${e.receipt}" class="ocr-preview" />` : '';
+        return `<div class="expense-card pending">
+          <div style="display:flex;justify-content:space-between">
+            <div><strong>${e.name}</strong> • ${e.date}</div>
+            <div class="pill">${e.stage}</div>
+          </div>
+          <div style="margin-top:6px">₹${e.amount} • ${e.category}</div>
+          <div style="margin-top:6px">${e.description || ''}</div>
+          <div style="margin-top:8px">${rec}</div>
+          <div style="margin-top:10px;display:flex;gap:8px">
+            <button class="btn" onclick='approveExpense("${e.id}", prompt("Approval comment (optional)"))'>Approve</button>
+            <button class="btn ghost" style="background:#ffd2d2;color:#7a1f1f" onclick='rejectExpense("${e.id}", prompt("Rejection comment (optional)"))'>Reject</button>
+          </div>
+        </div>`;
+      }).join('');
+    }
+  } else {
+    pendingPanel.innerHTML = '<p class="muted">Pending approvals are visible to Manager / Finance / Director / Admin only.</p>';
+  }
+
+  // Admin / all expenses
+  allExpensesDiv.innerHTML = '';
+  if(currentUser && currentUser.role === 'Admin'){
+    const all = lsGet(LS.expenses, []);
+    allExpensesDiv.innerHTML = all.length === 0 ? '<p class="muted">No expenses</p>' : all.map(e => {
+      const rec = e.receipt ? `<img src="${e.receipt}" class="ocr-preview" />` : '';
+      return `<div class="expense-card ${e.status.toLowerCase()}">
+        <div style="display:flex;justify-content:space-between">
+          <div><strong>${e.name}</strong> • ${e.date}</div>
+          <div class="pill">${e.status}</div>
+        </div>
+        <div style="margin-top:6px">₹${e.amount} • ${e.category}</div>
+        <div style="margin-top:6px">Submitted by: ${e.user}</div>
+        <div style="margin-top:6px">${e.description || ''}</div>
+        <div style="margin-top:8px">${rec}</div>
+      </div>`;
+    }).join('');
+  } else {
+    allExpensesDiv.innerHTML = '<p class="muted">Admin view available only to Admin</p>';
+  }
+}
+
+/* --------------
+  Reports / Export
+  -------------- */
+function downloadCSV(){
+  const expenses = lsGet(LS.expenses, []);
+  const rows = [['id','user','name','amount','date','category','description','stage','status']];
+  for(const e of expenses){
+    rows.push([e.id,e.user,e.name,e.amount,e.date,e.category, (e.description||'').replace(/"/g,'""'), e.stage, e.status]);
+  }
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type:'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = 'expenses.csv'; a.click(); URL.revokeObjectURL(url);
+}
+function exportJSON(){
+  const data = { users: lsGet(LS.users, []), expenses: lsGet(LS.expenses, []), rules: lsGet(LS.rules, {}) };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type:'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = 'expense-backup.json'; a.click(); URL.revokeObjectURL(url);
+}
+function clearAll(){
+  if(confirm('Clear all data? This will reset demo seed.')) {
+    localStorage.removeItem(LS.users);
+    localStorage.removeItem(LS.expenses);
+    localStorage.removeItem(LS.rules);
+    localStorage.removeItem(LS.current);
+    ensureSeed();
+    currentUser = null;
+    refreshAll();
+    showSection('home');
+  }
+}
+
+/* --------------
+  Simple seed-add function to create sample entries
+  -------------- */
+function seedSample(){
+  if(!confirm('Seed demo sample expenses?')) return;
+  const expenses = lsGet(LS.expenses, []);
+  expenses.unshift({
+    id: uid('exp'),
+    user: 'yatharth@company',
+    name: 'yatharth Employee',
+    amount: 23000,
+    date: new Date().toISOString().slice(0,10),
+    category: 'Travel',
+    description: 'Conference travel',
+    vendor: 'Conference Inc',
+    receipt: '',
+    stage: 'Finance',
+    status: 'Pending',
+    history: [{by:'yatharth@company',role:'Employee',action:'Submitted',comment:'',at:new Date().toISOString()},{by:'aaryan@company',role:'Manager',action:'Approved',comment:'OK',at:new Date().toISOString()}]
+  });
+  expenses.unshift({
+    id: uid('exp'),
+    user: 'yatharth@company',
+    name: 'yatharth Employee',
+    amount: 400,
+    date: new Date().toISOString().slice(0,10),
+    category: 'Meals',
+    description: 'Client lunch',
+    vendor: 'Cafe Good',
+    receipt: '',
+    stage: 'Manager',
+    status: 'Pending',
+    history: [{by:'yatharth@company',role:'Employee',action:'Submitted',comment:'',at:new Date().toISOString()}]
+  });
+  lsSet(LS.expenses, expenses);
+  refreshAll();
+  alert('Sample expenses added.');
+}
+
+/* --------------
+  On load: show landing or app depending on state
+  -------------- */
+window.addEventListener('DOMContentLoaded', () => {
+  // If user has previously signed in, set currentUser
+  const cur = lsGet(LS.current, null);
+  if(cur && cur.username){ currentUser = getUserByUsername(cur.username); }
+  // start with landing visible; app appears after 'Get Started' or login
+  refreshAll();
+  // show the landing initially; app container is hidden by default
+  // Attach enterApp to landing CTA already wired
+});
+
+/* --------------
+  3D landing animation (Three.js) — minimal, performant
+  -------------- */
+(function init3D(){
+  try{
+    const canvas = document.getElementById('bgCanvas');
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(50, window.innerWidth / (window.innerHeight*0.6), 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ canvas, alpha:true, antialias:true });
+    renderer.setPixelRatio(window.devicePixelRatio || 1);
+    renderer.setSize(window.innerWidth, window.innerHeight * 0.56);
+
+    camera.position.z = 4;
+    const geo = new THREE.TorusKnotGeometry(1.1, 0.28, 120, 24);
+    const mat = new THREE.MeshStandardMaterial({ color: 0x7ef6ff, metalness:0.7, roughness:0.25, emissive:0x001f25, emissiveIntensity:0.25 });
+    const mesh = new THREE.Mesh(geo, mat);
+    scene.add(mesh);
+
+    const p1 = new THREE.PointLight(0xffffff, 0.9); p1.position.set(5,5,5);
+    const p2 = new THREE.PointLight(0x00c6ff, 0.6); p2.position.set(-4,-2,3);
+    scene.add(p1,p2, new THREE.AmbientLight(0x404040, 0.6));
+
+    function animate(){
+      requestAnimationFrame(animate);
+      mesh.rotation.x += 0.008;
+      mesh.rotation.y += 0.01;
+      renderer.render(scene, camera);
+    }
+    animate();
+    window.addEventListener('resize', ()=> {
+      renderer.setSize(window.innerWidth, window.innerHeight * 0.56);
+      camera.aspect = window.innerWidth / (window.innerHeight*0.56);
+      camera.updateProjectionMatrix();
+    });
+  } catch(err) {
+    console.warn('3D init failed', err);
+  }
+})();
+
+/* --------------
+  Misc helpers
+  -------------- */
+function loadDashboard(){
+  showSection('dashboard');
+  refreshAll();
+}
+</script>
+</body>
+</html>
